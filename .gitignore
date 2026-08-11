@@ -1,0 +1,5 @@
+build/
+*.o
+__pycache__/
+.cache/
+compile_commands.json
