@@ -95,6 +95,15 @@ typedef struct {
 #define STATUSWORD_TARGET_REACHED_BIT 10     // 已到达目标位置
 #define STATUSWORD_SETPOINT_ACK_BIT 12       // 设点已被驱动器确认（PP 模式握手用）
 
+// 控制字(0x6040)命令值。主站下发这些值来驱动 CiA402 状态机前进。
+#define CONTROLWORD_SHUTDOWN 0x06           // 从头开始 → 进入 Ready to switch on
+#define CONTROLWORD_SWITCH_ON 0x07          // 上电 → 进入 Switched on
+#define CONTROLWORD_ENABLE_OPERATION 0x0F   // 使能运行 → 进入 Operation enabled
+#define CONTROLWORD_FAULT_RESET 0x86        // 故障复位
+
+// 控制字 bit4：new set-point，PP 模式发起新运动的握手位（配合 bit_is_set 用）
+#define CONTROLWORD_NEW_SETPOINT_BIT 4
+
 // 运行模式枚举（对象 0x6060）。本 demo 只用 PP。
 enum OperationMode {
   PositionMode = 1,  // PP 轮廓位置模式：给一个目标位置，驱动器自己规划轨迹走过去

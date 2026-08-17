@@ -178,12 +178,12 @@ bool KincoDriver::UpdateEnableStateMachine() {
   uint16_t& cw = ecat_data.mO_1601.Control_Word;
 
   if (bit_is_set(sw, STATUSWORD_FAULT_BIT)) {
-    cw = 0x86;  // 故障：先复位
+    cw = CONTROLWORD_FAULT_RESET;  // 故障：先复位
     enabled_ = false;
     return false;
   }
   if (bit_is_set(sw, STATUSWORD_OPERATION_ENABLE_BIT)) {
-    // 已经使能：保持 0x0F（运动子状态机会在此基础上叠加 bit4）
+    // 已经使能：保持 ENABLE_OPERATION（运动子状态机会在此基础上叠加 bit4）
     if (!enabled_) {
       LOG(INFO) << "驱动器已进入【运行使能】状态";
     }
@@ -191,14 +191,14 @@ bool KincoDriver::UpdateEnableStateMachine() {
     return true;
   }
   if (bit_is_set(sw, STATUSWORD_SWITCHED_ON_BIT)) {
-    cw = 0x0F;  // 已上电 → 使能运行
+    cw = CONTROLWORD_ENABLE_OPERATION;  // 已上电 → 使能运行
     return false;
   }
   if (bit_is_set(sw, STATUSWORD_READY_TO_SWITCH_ON_BIT)) {
-    cw = 0x07;  // 已准备好 → 上电
+    cw = CONTROLWORD_SWITCH_ON;  // 已准备好 → 上电
     return false;
   }
-  cw = 0x06;  // 其它情况 → Shutdown，从头开始
+  cw = CONTROLWORD_SHUTDOWN;  // 其它情况 → Shutdown，从头开始
   return false;
 }
 
@@ -243,13 +243,13 @@ void KincoDriver::UpdateMotion() {
       break;
 
     case MoveState::kSetSetpoint:
-      cw |= 0x10;  // 抬起 bit4：0x0F → 0x1F
+      cw |= _BV(CONTROLWORD_NEW_SETPOINT_BIT);  // 抬起 bit4：0x0F → 0x1F
       move_state_ = MoveState::kWaitAck;
       break;
 
     case MoveState::kWaitAck:
       if (bit_is_set(sw, STATUSWORD_SETPOINT_ACK_BIT)) {
-        cw &= ~0x10;  // 落回 bit4：0x1F → 0x0F，握手完成
+        cw &= ~_BV(CONTROLWORD_NEW_SETPOINT_BIT);  // 落回 bit4：0x1F → 0x0F，握手完成
         move_state_ = MoveState::kWaitReached;
       }
       break;
