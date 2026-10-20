@@ -55,6 +55,8 @@ def main():
     # 子命令二：status —— 纯查询，不需要额外参数，所以拿到 parser 后不加任何参数
     sub.add_parser("status", help="查询当前位置/状态字")
 
+
+
     # 真正开始解析用户在命令行敲的内容，结果放进 args（含 host/port/cmd/angle 等字段）
     args = parser.parse_args()
 

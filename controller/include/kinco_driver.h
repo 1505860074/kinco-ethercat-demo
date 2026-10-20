@@ -81,28 +81,28 @@ typedef struct {
 } tx_1a01_off_t;
 
 // ============================================================
-// 二、CiA402 状态字位定义（保留自原项目 ecat_base.h）
+// 二、CiA402 状态字 / 控制字常量（用 constexpr 全局常量，不用 #define 宏）
 // ============================================================
 // CiA402 是伺服驱动器的国际标准状态机。主站通过“控制字(0x6040)”下命令，
-// 驱动器通过“状态字(0x6041)”回报自己处在哪个状态。判断状态字的某一位。
-#define _BV(bit) (1 << (bit))
-#define bit_is_set(val, bit) ((val) & _BV(bit))
+// 驱动器通过“状态字(0x6041)”回报自己处在哪个状态。判断状态字某一位、
+// 置位 / 清位都直接用原始位运算：(1 << n)、val & (1 << n)、&= ~(1 << n)。
 
-#define STATUSWORD_READY_TO_SWITCH_ON_BIT 0  // 已准备好上电
-#define STATUSWORD_SWITCHED_ON_BIT 1         // 已上电
-#define STATUSWORD_OPERATION_ENABLE_BIT 2    // 运行使能（可以真正动了）
-#define STATUSWORD_FAULT_BIT 3               // 故障标志
-#define STATUSWORD_TARGET_REACHED_BIT 10     // 已到达目标位置
-#define STATUSWORD_SETPOINT_ACK_BIT 12       // 设点已被驱动器确认（PP 模式握手用）
+// 状态字(0x6041)各位
+constexpr int STATUSWORD_READY_TO_SWITCH_ON_BIT = 0;  // 已准备好上电
+constexpr int STATUSWORD_SWITCHED_ON_BIT = 1;         // 已上电
+constexpr int STATUSWORD_OPERATION_ENABLE_BIT = 2;    // 运行使能（可以真正动了）
+constexpr int STATUSWORD_FAULT_BIT = 3;               // 故障标志
+constexpr int STATUSWORD_TARGET_REACHED_BIT = 10;     // 已到达目标位置
+constexpr int STATUSWORD_SETPOINT_ACK_BIT = 12;       // 设点已被驱动器确认（PP 握手用）
 
-// 控制字(0x6040)命令值。主站下发这些值来驱动 CiA402 状态机前进。
-#define CONTROLWORD_SHUTDOWN 0x06           // 从头开始 → 进入 Ready to switch on
-#define CONTROLWORD_SWITCH_ON 0x07          // 上电 → 进入 Switched on
-#define CONTROLWORD_ENABLE_OPERATION 0x0F   // 使能运行 → 进入 Operation enabled
-#define CONTROLWORD_FAULT_RESET 0x86        // 故障复位
+// 控制字(0x6040)命令值
+constexpr uint16_t CONTROLWORD_SHUTDOWN = 0x06;          // 从头开始 → Ready to switch on
+constexpr uint16_t CONTROLWORD_SWITCH_ON = 0x07;         // 上电 → Switched on
+constexpr uint16_t CONTROLWORD_ENABLE_OPERATION = 0x0F;  // 使能运行 → Operation enabled
+constexpr uint16_t CONTROLWORD_FAULT_RESET = 0x86;       // 故障复位
 
-// 控制字 bit4：new set-point，PP 模式发起新运动的握手位（配合 bit_is_set 用）
-#define CONTROLWORD_NEW_SETPOINT_BIT 4
+// 控制字 bit4 = new set-point（PP 模式发起新运动的握手位）
+constexpr int CONTROLWORD_NEW_SETPOINT_BIT = 4;
 
 // 运行模式枚举（对象 0x6060）。本 demo 只用 PP。
 enum OperationMode {

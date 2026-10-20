@@ -76,7 +76,7 @@ void EcatMaster::SpinOnce() {
   // 把最新状态发布给外部（socket 线程读回用）
   last_actual_position_.store(kinco_.actual_position());
   last_status_word_.store(kinco_.status_word());
-
+0
   // 4) 推进 CiA402 使能状态机（把驱动器一步步推到“运行使能”）
   bool enabled = kinco_.UpdateEnableStateMachine();
 
@@ -121,6 +121,47 @@ void EcatMaster::RunForever(std::atomic<bool>* stop_flag) {
   }
   LOG(INFO) << "周期循环收到停止信号，退出";
 }
+
+#if 0  // 本函数真实调用 Xenomai API，需装 Xenomai 才能编译，故屏蔽；本 demo 不会调用它，仅作对照
+前提：
+① 装好 Xenomai（Cobalt 双内核）并加载内核模块；
+② IgH 用 ./configure --with-xenomai-dir=… 编成 RTDM 实时驱动，ecrt_* 才跑在 RT 域。
+编译链接：g++ ... $(xeno-config --alchemy --cflags) $(xeno-config --alchemy --ldflags)
+void EcatMaster::RunForeverXenomai(std::atomic<bool>* stop_flag) {
+  RT_TASK rt_task;  // 实时任务句柄（Xenomai 的“任务”≈ 一条实时线程）
+
+  // int rt_task_create(RT_TASK *task, const char *name, int stksize, int prio, int mode);
+  //   task 任务句柄(&rt_task)｜name 任务名｜stksize 栈大小(0=默认)
+  //   prio 实时优先级(0~99，周期控制任务给 99)｜mode 如 T_JOINABLE(可 join 回收)
+  //   返回 0 成功、负错误码失败
+  rt_task_create(&rt_task, "ecat_loop", 0, 99, T_JOINABLE);
+
+  // int rt_task_set_periodic(RT_TASK *task, RTIME start, RTIME period);
+  //   start=TM_NOW(从当前时刻开始)｜period=1'000'000(纳秒，即 1ms)
+  //   设成周期后，任务体里的 rt_task_wait_period() 就会“睡到下一周期边界”（绝对周期，不漂）
+  rt_task_set_periodic(&rt_task, TM_NOW, 1000000);
+
+  // 任务体上下文：把 this 和 stop_flag 打包，经 arg 传给任务体
+  struct Ctx {
+    EcatMaster* self;
+    std::atomic<bool>* stop;
+  };
+  Ctx ctx{this, stop_flag};
+
+  // int rt_task_start(RT_TASK *task, void (*entry)(void *), void *arg);
+  //   启动任务：entry 是任务体（这里用无捕获 lambda，可隐式转成函数指针），arg 传参
+  rt_task_start(&rt_task, [](void* p) {
+    auto* c = static_cast<Ctx*>(p);
+    while (!c->stop->load()) {
+      c->self->SpinOnce();           // 一个总线周期：收发 PDO、推进状态机
+      rt_task_wait_period(nullptr);  // int rt_task_wait_period(void*): 睡到下一周期边界
+    }
+  }, &ctx);
+
+  // int rt_task_join(RT_TASK *task): 等任务结束并回收（对应 std::thread::join）
+  rt_task_join(&rt_task);
+}
+#endif
 
 // ============================================================
 // RequestRelativeMove：socket 线程往"信箱"投运动请求（跨线程交接点）

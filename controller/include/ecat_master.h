@@ -48,7 +48,7 @@ class EcatMaster {
 
   // socket 线程 → 周期循环 传递运动指令的“信箱”（无锁原子变量）
   std::atomic<int32_t> pending_delta_{0};
-  std::atomic<bool> has_pending_{false};
+  std::atomic<bool> ecat_masterhas_pending_{false};
 
   // 周期循环 → 外部 回传的最新状态
   std::atomic<int32_t> last_actual_position_{0};

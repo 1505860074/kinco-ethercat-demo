@@ -177,25 +177,25 @@ bool KincoDriver::UpdateEnableStateMachine() {
   uint16_t sw = ecat_data.mI_1a01.Status_word;
   uint16_t& cw = ecat_data.mO_1601.Control_Word;
 
-  if (bit_is_set(sw, STATUSWORD_FAULT_BIT)) {
-    cw = CONTROLWORD_FAULT_RESET;  // 故障：先复位
+  if (sw & (1 << STATUSWORD_FAULT_BIT)) {  // 故障
+    cw = CONTROLWORD_FAULT_RESET;          // 先复位
     enabled_ = false;
     return false;
   }
-  if (bit_is_set(sw, STATUSWORD_OPERATION_ENABLE_BIT)) {
-    // 已经使能：保持 ENABLE_OPERATION（运动子状态机会在此基础上叠加 bit4）
+  if (sw & (1 << STATUSWORD_OPERATION_ENABLE_BIT)) {  // 运行使能
+    // 已经使能：保持使能运行（运动子状态机会在此基础上叠加 bit4）
     if (!enabled_) {
       LOG(INFO) << "驱动器已进入【运行使能】状态";
     }
     enabled_ = true;
     return true;
   }
-  if (bit_is_set(sw, STATUSWORD_SWITCHED_ON_BIT)) {
-    cw = CONTROLWORD_ENABLE_OPERATION;  // 已上电 → 使能运行
+  if (sw & (1 << STATUSWORD_SWITCHED_ON_BIT)) {  // 已上电
+    cw = CONTROLWORD_ENABLE_OPERATION;           // 使能运行
     return false;
   }
-  if (bit_is_set(sw, STATUSWORD_READY_TO_SWITCH_ON_BIT)) {
-    cw = CONTROLWORD_SWITCH_ON;  // 已准备好 → 上电
+  if (sw & (1 << STATUSWORD_READY_TO_SWITCH_ON_BIT)) {  // 已准备好上电
+    cw = CONTROLWORD_SWITCH_ON;                         // 上电
     return false;
   }
   cw = CONTROLWORD_SHUTDOWN;  // 其它情况 → Shutdown，从头开始
@@ -243,19 +243,19 @@ void KincoDriver::UpdateMotion() {
       break;
 
     case MoveState::kSetSetpoint:
-      cw |= _BV(CONTROLWORD_NEW_SETPOINT_BIT);  // 抬起 bit4：0x0F → 0x1F
+      cw |= (1 << CONTROLWORD_NEW_SETPOINT_BIT);  // 抬起 bit4：0x0F → 0x1F
       move_state_ = MoveState::kWaitAck;
       break;
 
     case MoveState::kWaitAck:
-      if (bit_is_set(sw, STATUSWORD_SETPOINT_ACK_BIT)) {
-        cw &= ~_BV(CONTROLWORD_NEW_SETPOINT_BIT);  // 落回 bit4：0x1F → 0x0F，握手完成
+      if (sw & (1 << STATUSWORD_SETPOINT_ACK_BIT)) {  // 状态字 bit12 = set-point ack
+        cw &= ~(1 << CONTROLWORD_NEW_SETPOINT_BIT);   // 落回 bit4：0x1F → 0x0F，握手完成
         move_state_ = MoveState::kWaitReached;
       }
       break;
 
     case MoveState::kWaitReached:
-      if (bit_is_set(sw, STATUSWORD_TARGET_REACHED_BIT)) {
+      if (sw & (1 << STATUSWORD_TARGET_REACHED_BIT)) {  // 状态字 bit10 = target reached
         LOG(INFO) << "运动完成，到达目标位置: "
                   << ecat_data.mI_1a01.Actual_position;
         move_state_ = MoveState::kIdle;
